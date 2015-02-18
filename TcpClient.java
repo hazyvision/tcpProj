@@ -48,7 +48,7 @@ public class TcpClient {
 				
 		}
 		catch(Exception e){
-			System.out.println("Incorrect address or port number.");
+			System.out.println("Incorrect address/port or server is unavaliable.");
 			System.out.println("Socket is closing...");
 		}
 	} // End Main
@@ -93,12 +93,25 @@ public class TcpClient {
 		headerBuf.putInt(sequenceNum + 1); // Acknowledgment number (if ACK set)
 		headerBuf.put((byte) ((dataOffset & 0xF) << 4 | reserved & 0xF) ); //NS flag = 0(Built in reserve)
 		
-		//Flags --> [cwr,ece,urg,ack,psh,rst,syn,fin]
+		//Flags --> [cwr,ece,urg,ack,psh,rst,syn,fin] *Note: not including NS flag. Look above^^
 		headerBuf.put((byte) 0b00000010);
 		headerBuf.putShort(windowSize);
+		//------Begin PseudoHeaderTCP-----------------------------------------------------------
+		short pseudoHlen = 32;
+		byte[] pHeader = new byte[pseudoHlen + data.length];
+		ByteBuffer pHeaderBuf = ByteBuffer.wrap(pHeader);
+		
+		pHeaderBuf.putInt(srcAddress);
+		pHeaderBuf.putInt(destAddress);
+		pHeaderBuf.put((byte) 0); // Zeros
+		pHeaderBuf.put(protocol);
+		pHeaderBuf.put(header); //Tcp Header
+		pHeaderBuf.put(data);
+		checksum = checksum_Funct2(pHeaderBuf,(byte) (pseudoHlen + data.length));
+		//------End PseudoHeaderTCP-------------------------------------------------------------		
+				
 		headerBuf.putShort(checksum);
 		headerBuf.putShort(urgentPointer);
-		checksum_Funct(headerBuf,hlen);
 		headerBuf.put(data);
 		return header;
 	}// end Function generateTcp
@@ -115,6 +128,48 @@ public class TcpClient {
 	    return checksum;
 	}//end checksum_Funct
 	
+	public static short checksum_Funct2(ByteBuffer bb, byte hlen){
+	    int num = 0;
+	    bb.rewind();
+	    for(int i = 0; i < hlen*2; ++i){
+	      num += 0xFFFF & bb.getShort();
+	    }
+	    num = ((num >> 16) & 0xFFFF) + (num & 0xFFFF);
+	    checksum = (short) (~num & 0xFFFF);
+	    //bb.putShort(10,checksum);
+	    return checksum;
+	}//end checksum_Funct
+	
+	/*
+    public static short checksum_Funct2(int port,int length, short checksum, byte[] data){
+		 // udp header, 8 bytes
+		 ByteBuffer header = ByteBuffer.allocate(length);
+		 header.putShort((short) port);
+		 header.putShort((short) port);
+		 header.putShort((short) length);
+		 header.putShort((short) 0);
+		 header.put(data);
+		 header.rewind();
+		 
+		 int sum = 0;
+		 sum += ((srcAddress >> 16) & 0xFFFF) + (srcAddress & 0xFFFF);
+		 sum += ((destAddress >> 16) & 0xFFFF) + (destAddress & 0xFFFF);
+		 sum += (byte) 17 & 0xFFFF;
+		 sum += length & 0xFFFF;
+		 
+		 //Sum header
+		 for (int i = 0; i < length * 0.5 ; i++){
+		   sum += 0xFFFF & header.getShort();
+		 }     
+		 // if length is odd
+		 if(length % 2 > 0){
+		   sum += (header.get() & 0xFF) << 8;
+		 }
+		 sum = ((sum >> 16) & 0xFFFF) + (sum & 0xFFFF);
+		 short result = (short) (~sum & 0xFFFF);
+		 return result;
+  }// End Function checksum_Funct2
+	*/
 	public static byte[] generateRandomData(int size){
 		Random r = new Random();
 		byte[] randomArr = new byte[size];
@@ -123,7 +178,7 @@ public class TcpClient {
 		}
 		return randomArr;
 	} // end Function generateRandomData
-	
+
 	
 
 } // End Class TcpClient
