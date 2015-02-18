@@ -1,3 +1,4 @@
+
 //Adriene Cuenco
 //Initial branch
 
@@ -22,17 +23,18 @@ public class TcpClient {
     static short checksum = 0;
     static int srcAddress = 0xC0A811A; //192.168.1.26
     static int destAddress = 0x4C5B7B61; //76.91.123.97
-    /*
-    static OutputStream out;
-    static InputStream in;
-    */
     
 	public static void main(String[] args) {
 		try(Socket socket = new Socket("76.91.123.97", 38006)){
+			System.out.println("Connected to server successfully...");
+			System.out.println(socket);
+			System.out.println("------------------------------------------------------");
+			
 			OutputStream out = socket.getOutputStream();
 			InputStream in = socket.getInputStream();
 			
 			int dataSize = 2;
+			System.out.println("Data Size: " + dataSize);
 			//Creating syn packet-----------------------------------------------------------
 			byte[] data = generateRandomData(dataSize); 
 			byte[] tcpHeader = generateTcp(data);
@@ -48,7 +50,10 @@ public class TcpClient {
 				
 		}
 		catch(Exception e){
-			System.out.println("Incorrect address/port or server is unavaliable.");
+			System.out.println("Possible problems: ");
+			System.out.println("1)Incorrect address/port.");
+			System.out.println("2)Server is unavailable.");
+			System.out.println("3)Server timed out.");
 			System.out.println("Socket is closing...");
 		}
 	} // End Main
@@ -107,7 +112,7 @@ public class TcpClient {
 		pHeaderBuf.put(protocol);
 		pHeaderBuf.put(header); //Tcp Header
 		pHeaderBuf.put(data);
-		checksum = checksum_Funct2(pHeaderBuf,(byte) (pseudoHlen + data.length));
+		checksum = checksum_Funct(pHeaderBuf,(byte) hlen);
 		//------End PseudoHeaderTCP-------------------------------------------------------------		
 				
 		headerBuf.putShort(checksum);
