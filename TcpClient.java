@@ -1,6 +1,6 @@
 
 //Adriene Cuenco
-//Initial branch
+//Initial branch (For data Size = 2 only)
 
 import java.io.*;
 import java.net.*;
@@ -23,6 +23,7 @@ public class TcpClient {
     static short checksum = 0;
     static int srcAddress = 0xC0A811A; //192.168.1.26
     static int destAddress = 0x4C5B7B61; //76.91.123.97
+
     
 	public static void main(String[] args) {
 		try(Socket socket = new Socket("76.91.123.97", 38006)){
@@ -35,25 +36,27 @@ public class TcpClient {
 			
 			int dataSize = 2;
 			System.out.println("Data Size: " + dataSize);
+			
 			//Creating syn packet-----------------------------------------------------------
-			byte[] data = generateRandomData(dataSize); 
-			byte[] tcpHeader = generateTcp(data);
-			byte[] ipv4Header = generateIpv4(tcpHeader);
+			//byte[] data = generateRandomData(dataSize); 
+			//byte[] tcpHeader = generateTcp(data);
+			//byte[] ipv4Header = generateIpv4(tcpHeader);
+			byte[] ipv4Header = generateIpv4(generateTcp(generateRandomData(dataSize)));
 			
 			out.write(ipv4Header);
 			
 			byte[] synPacket = new byte[4];
 			in.read(synPacket);
-			//ByteBuffer synPacketBuf = ByteBuffer.wrap(synPacket);
 			System.out.println("synPacket> " +  DatatypeConverter.printHexBinary(synPacket));
 			//SYN packet complete------------------------------------------------------------
 				
 		}
 		catch(Exception e){
 			System.out.println("Possible problems: ");
-			System.out.println("1)Incorrect address/port.");
-			System.out.println("2)Server is unavailable.");
-			System.out.println("3)Server timed out.");
+			System.out.println("1)Incorrect address/port");
+			System.out.println("2)Socket is unavailable");
+			System.out.println("3)Socket timed out");
+			System.out.println("4)Offline");
 			System.out.println("Socket is closing...");
 		}
 	} // End Main
@@ -62,6 +65,7 @@ public class TcpClient {
 		byte[] header = new byte[20 + data.length];
 		//reset checksum
 		checksum = 0;
+		
 	
 		//Wrap header in Bytebuffer
 		ByteBuffer headerBuf = ByteBuffer.wrap(header);
@@ -82,42 +86,55 @@ public class TcpClient {
 	} //End Function generateIpv4
 	
 	public static byte[] generateTcp(byte data[]){
-		byte[] header = new byte[20 + data.length];
+		int tcpHlen = 20 + data.length;
+		byte[] header = new byte[tcpHlen];
 		ByteBuffer headerBuf = ByteBuffer.wrap(header);
 		checksum = 0;
 		
-		int sequenceNum = 3232;
-		byte dataOffset = 5;
-		byte reserved = 0;
-		short windowSize = 0;
-		short urgentPointer = 0;
+	    short fillerPort =0x420;
+	    int sequenceNum = 3232;
+	    byte dataOffset = 5;
+	    byte reserved = 0;
+	    byte flagsTCP = 0b00000010;
+	    short windowSize = 0;
+	    short urgentPointer = 0;
 		
-		headerBuf.putShort((short)0x420);//Random Source Port
-		headerBuf.putShort((short)0x013); //Random Dest Port
+		headerBuf.putShort((short)fillerPort);//Random Source Port
+		headerBuf.putShort((short)fillerPort); //Random Dest Port
 		headerBuf.putInt(sequenceNum);   //Random sequence number
 		headerBuf.putInt(sequenceNum + 1); // Acknowledgment number (if ACK set)
-		headerBuf.put((byte) ((dataOffset & 0xF) << 4 | reserved & 0xF) ); //NS flag = 0(Built in reserve)
-		
+		headerBuf.put((byte) ((dataOffset & 0xF) << 4 | reserved & 0xF) ); //NS flag = 0(Built in reserve)	
 		//Flags --> [cwr,ece,urg,ack,psh,rst,syn,fin] *Note: not including NS flag. Look above^^
-		headerBuf.put((byte) 0b00000010);
+		headerBuf.put((byte) flagsTCP);
 		headerBuf.putShort(windowSize);
 		//------Begin PseudoHeaderTCP-----------------------------------------------------------
-		short pseudoHlen = 32;
-		byte[] pHeader = new byte[pseudoHlen + data.length];
+		//short pseudoHlen = 8;
+		//byte[] pHeader = new byte[(pseudoHlen * 4) + data.length];
+		byte[] pHeader = new byte[tcpHlen];
 		ByteBuffer pHeaderBuf = ByteBuffer.wrap(pHeader);
-		
-		pHeaderBuf.putInt(srcAddress);
-		pHeaderBuf.putInt(destAddress);
-		pHeaderBuf.put((byte) 0); // Zeros
-		pHeaderBuf.put(protocol);
-		pHeaderBuf.put(header); //Tcp Header
+		//pHeaderBuf.putInt(srcAddress);
+		//pHeaderBuf.putInt(destAddress);
+		//pHeaderBuf.put((byte) 0); // Zeros
+		//pHeaderBuf.put(protocol);
+		//pHeaderBuf.putShort((short) pHeader.length);
+		pHeaderBuf.putShort(fillerPort);
+		pHeaderBuf.putShort(fillerPort);
+		pHeaderBuf.putInt(sequenceNum);
+		pHeaderBuf.putInt(sequenceNum + 1);
+		pHeaderBuf.put((byte) ((dataOffset & 0xF) << 4 | reserved & 0xF) );
+		pHeaderBuf.put((byte) flagsTCP);
+		pHeaderBuf.putShort(windowSize);
+		pHeaderBuf.putShort(checksum);
+		pHeaderBuf.putShort(urgentPointer);
 		pHeaderBuf.put(data);
-		checksum = checksum_Funct(pHeaderBuf,(byte) hlen);
-		//------End PseudoHeaderTCP-------------------------------------------------------------		
-				
+		//System.out.println("pHeaderBuf.capacity()/4: " + pHeaderBuf.capacity()/4.0);
+		checksum = (byte) checksum_Funct_TCP(pHeaderBuf, pHeaderBuf.capacity()/4,tcpHlen);
+		//checksum = checksum_Funct2(pHeaderBuf,(byte) hlen);
+		//------End PseudoHeaderTCP-------------------------------------------------------------
 		headerBuf.putShort(checksum);
 		headerBuf.putShort(urgentPointer);
 		headerBuf.put(data);
+	
 		return header;
 	}// end Function generateTcp
 	
@@ -133,48 +150,29 @@ public class TcpClient {
 	    return checksum;
 	}//end checksum_Funct
 	
-	public static short checksum_Funct2(ByteBuffer bb, byte hlen){
-	    int num = 0;
-	    bb.rewind();
-	    for(int i = 0; i < hlen*2; ++i){
-	      num += 0xFFFF & bb.getShort();
-	    }
-	    num = ((num >> 16) & 0xFFFF) + (num & 0xFFFF);
-	    checksum = (short) (~num & 0xFFFF);
-	    //bb.putShort(10,checksum);
-	    return checksum;
-	}//end checksum_Funct
-	
-	/*
-    public static short checksum_Funct2(int port,int length, short checksum, byte[] data){
-		 // udp header, 8 bytes
-		 ByteBuffer header = ByteBuffer.allocate(length);
-		 header.putShort((short) port);
-		 header.putShort((short) port);
-		 header.putShort((short) length);
-		 header.putShort((short) 0);
-		 header.put(data);
-		 header.rewind();
-		 
-		 int sum = 0;
+    public static short checksum_Funct_TCP(ByteBuffer header,int hlen,int tcpHlen){
+    	 int sum = 0;
+    	 header.rewind();
+    	 //sum pseudo header
 		 sum += ((srcAddress >> 16) & 0xFFFF) + (srcAddress & 0xFFFF);
 		 sum += ((destAddress >> 16) & 0xFFFF) + (destAddress & 0xFFFF);
-		 sum += (byte) 17 & 0xFFFF;
-		 sum += length & 0xFFFF;
+		 sum += (byte) protocol & 0xFFFF;
+		 sum += (short)(tcpHlen) & 0xFFFF;
 		 
-		 //Sum header
-		 for (int i = 0; i < length * 0.5 ; i++){
+		 //Sum tcp segment
+		 for (int i = 0; i < hlen*2 ; i++){
 		   sum += 0xFFFF & header.getShort();
 		 }     
 		 // if length is odd
-		 if(length % 2 > 0){
+		 if(hlen % 2 > 0){
 		   sum += (header.get() & 0xFF) << 8;
 		 }
 		 sum = ((sum >> 16) & 0xFFFF) + (sum & 0xFFFF);
 		 short result = (short) (~sum & 0xFFFF);
+		 //System.out.println("Sum: " + result);
 		 return result;
-  }// End Function checksum_Funct2
-	*/
+  }// End Function checksum_Funct_TCP
+	
 	public static byte[] generateRandomData(int size){
 		Random r = new Random();
 		byte[] randomArr = new byte[size];
