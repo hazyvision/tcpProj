@@ -1,6 +1,6 @@
 
 //Adriene Cuenco
-//Initial branch (For data Size = 2 only)
+
 
 import java.io.*;
 import java.net.*;
@@ -23,10 +23,19 @@ public class TcpClient {
     static short checksum = 0;
     static int srcAddress = 0xC0A811A; //192.168.1.26
     static int destAddress = 0x4C5B7B61; //76.91.123.97
+    //static int destAddress = 0x2D325EE; //45.50.5.238
+    
+    static byte dataOffset = 5;
+    static byte reserved = 0;
+    static short windowSize = 0;
+    static short urgentPointer = 0;
+    static int tcpHlen = 20 ;
+    static short fillerPort = 0x420;
+    
     static int sequenceNum = 0;
     
-	public static void main(String[] args) {
-		try(Socket socket = new Socket("76.91.123.97", 38006)){
+	public static void main(String[] args) throws UnknownHostException {
+		try(Socket socket = new Socket("45.50.5.238", 38006)){
 			System.out.println("Connected to server successfully...");
 			System.out.println(socket);
 			System.out.println("------------------------------------------------------");
@@ -43,7 +52,7 @@ public class TcpClient {
 			//SYN packet complete
 			
 			//Tcp header From server--ACK packet
-			sequenceNum+=1;
+			sequenceNum++;
 			byte[] serverResponse1 = new byte[20];
 			in.read(serverResponse1);		
 			short[] tcpTemp = byteToShort(serverResponse1);		
@@ -59,8 +68,8 @@ public class TcpClient {
 			System.out.println("------------------------------------------------------");
 			
 			int dataSize = 2;
-
-			for(int i = 1; i <= 12; i++){			
+			//sequenceNum++;
+			for(int i = 1; i <= 12; i++){		
 				sequenceNum+=dataSize;
 				byte[] packet = generateIpv4(generateTcp_packet(generateRandomData(dataSize)));
 				out.write(packet);
@@ -70,9 +79,7 @@ public class TcpClient {
 				dataSize*=2;
 				
 			}//End for_12 packets complete
-			
-			
-			
+					
 	
 			System.out.println("Reached end of code.");
 		}
@@ -88,8 +95,7 @@ public class TcpClient {
 	
 	public static byte[] generateIpv4(byte[] data){
 		byte[] header = new byte[20 + data.length];
-		checksum = 0;
-	
+		checksum = 0;	
 		//Wrap header in Bytebuffer
 		ByteBuffer headerBuf = ByteBuffer.wrap(header);
 		headerBuf.put((byte) ((version & 0xf) << 4 | hlen & 0xf));
@@ -109,16 +115,8 @@ public class TcpClient {
 	} //End Function generateIpv4
 	
 	public static byte[] generateTcp_syn(){		
-	    short fillerPort =0x420;
-	    
-	    byte dataOffset = 5;
-	    byte reserved = 0;
-	    short windowSize = 0;
-	    short urgentPointer = 0;
 	    byte flagsTCP = 0b00000010;
 		//------Begin PseudoHeaderTCP-----------------------------------------------------------
-		//short pseudoHlen = 8;
-		//byte[] pHeader = new byte[(pseudoHlen * 4) + data.length];
 		byte[] pHeader = new byte[12 + 20];
 		ByteBuffer pHeaderBuf = ByteBuffer.wrap(pHeader);
 		pHeaderBuf.putShort(fillerPort);
@@ -146,23 +144,10 @@ public class TcpClient {
 		headerBuf.putShort(windowSize);
 		headerBuf.putShort((checksum_Funct_TCP(pHeaderBuf,(byte) 5)));
 		headerBuf.putShort(urgentPointer);
-		//pHeaderBuf.put(data);
-		//System.out.println("pHeaderBuf.capacity()/4: " + pHeaderBuf.capacity()/4.0);
-		//System.out.println("Right before checksum_Funct_TCP Checkpoint");	
-		//checksum = checksum_Funct2(pHeaderBuf,(byte) hlen);
-		
-		//headerBuf.put(data);
-		//System.out.println("Done generateTCP Checkpoint");
 		return header;
 	}// end Function generateTcp_syn
 	
 	public static byte[] generateTcp_ack(short[] fromServer){
-		
-		short fillerPort =0x420;
-	    byte dataOffset = 5;
-	    byte reserved = 0;
-	    short windowSize = 0;
-	    short urgentPointer = 0;
 	    byte flagsTCP = 0b00010010;
 		//------Begin PseudoHeaderTCP-----------------------------------------------------------
 		byte[] pHeader = new byte[12 + 20];
@@ -178,7 +163,6 @@ public class TcpClient {
 		pHeaderBuf.putShort((short) 0);
 		pHeaderBuf.putShort(urgentPointer);
 		//------End PseudoHeaderTCP-------------------------------------------------------------
-		int tcpHlen = 20 ;
 		byte[] header = new byte[tcpHlen];
 		ByteBuffer headerBuf = ByteBuffer.wrap(header);
 		headerBuf.putShort((short)fillerPort);//Random Source Port
@@ -195,13 +179,7 @@ public class TcpClient {
 		return header;
 	}//end function generateTcp_ack
 	
-	public static byte[] generateTcp_packet(byte[] data){
-		short fillerPort =0x420;
-		int tcpHlen = 20 ;
-	    byte dataOffset = 5;
-	    byte reserved = 0;
-	    short windowSize = 0;
-	    short urgentPointer = 0;
+	public static byte[] generateTcp_packet(byte[] data){		
 	    byte flagsTCP = 0b00000000;
 		//------Begin PseudoHeaderTCP-----------------------------------------------------------
 		byte[] pHeader = new byte[12 + tcpHlen + data.length];
