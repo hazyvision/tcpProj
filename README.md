@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Welcome to your tutorial repository!
 ================
 Learn how to use Git and Bitbucket with either SourceTree, one of the best Git clients available, or using Git from the command line. Whichever you choose you will learn how set up Git, clone this repository locally. Then learn how to make and commit a change locally and push that change back to Bitbucket.
@@ -293,3 +294,6 @@ All of us at Bitbucket and SourceTree hope your experience is a great one! We ar
 [Extra]: http://michelf.ca/projects/php-markdown/extra/
 [id]: http://example.com/  "Optional Title Here"
 [BBmarkup]: https://confluence.atlassian.com/x/xTAvEw
+=======
+# tcpProj
+>>>>>>> f2f9b37f03d1446e36c28e8594478b35a31e21f7
